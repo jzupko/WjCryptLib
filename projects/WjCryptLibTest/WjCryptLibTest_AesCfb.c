@@ -1,11 +1,11 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  WjCryptLibTest_AesCbc
+//  WjCryptLibTest_AesCfb
 //
 //  Tests the cryptography functions against known test vectors to verify algorithms are correct.
 //  Tests the following:
-//     AES CBC
+//     AES CFB
 //
-//  This is free and unencumbered software released into the public domain - March 2018 waterjuice.org
+//  This is free and unencumbered software released into the public domain - January 2020 Joseph A. Zupko <jazupko@jazupko.com>
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
-#include "WjCryptLib_AesCbc.h"
+#include "WjCryptLib_AesCfb.h"
 #include "WjCryptLib_Sha1.h"
 #include "WjCryptLib_Rc4.h"
 
@@ -45,45 +45,45 @@ typedef struct
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // These test vectors were created using openssl. Using the following commands:
-// (Note: As CBC is not a stream cipher, the input is created using an RC4 stream generated from a key of 0)
+// (Note: As CFB is not a stream cipher, the input is created using an RC4 stream generated from a key of 0)
 // (Also note: openssl outputs an additional block of data due to some padding. We ignore this)
-//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cbc -K 00000000000000000000000000000000 -iv 00000000000000000000000000000000 | head -c 64 | xxd -p -c 64
-//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cbc -K 0102030405060708a1a2a3a4a5a6a7a8 -iv 00000000000000000000000000000000 | head -c 64 | xxd -p -c 64
-//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cbc -K 00000000000000000000000000000000 -iv b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8 | head -c 64 | xxd -p -c 64
-//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cbc -K 0102030405060708a1a2a3a4a5a6a7a8 -iv b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8 | head -c 64 | xxd -p -c 64
-//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-192-cbc -K 0102030405060708a1a2a3a4a5a6a7a8b1b2b3b4b5b6b7b8 -iv c1c2c3c4c5c6c7c8d1d2d3d4d5d6d7d8 | head -c 64 | xxd -p -c 64
-//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-256-cbc -K 0102030405060708a1a2a3a4a5a6a7a8b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8 -iv d1d2d3d4d5d6d7d8e1e2e3e4e5e6e7e8 | head -c 64 | xxd -p -c 64
+//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cfb -K 00000000000000000000000000000000 -iv 00000000000000000000000000000000 | head -c 64 | xxd -p -c 64
+//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cfb -K 0102030405060708a1a2a3a4a5a6a7a8 -iv 00000000000000000000000000000000 | head -c 64 | xxd -p -c 64
+//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cfb -K 00000000000000000000000000000000 -iv b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8 | head -c 64 | xxd -p -c 64
+//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cfb -K 0102030405060708a1a2a3a4a5a6a7a8 -iv b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8 | head -c 64 | xxd -p -c 64
+//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-192-cfb -K 0102030405060708a1a2a3a4a5a6a7a8b1b2b3b4b5b6b7b8 -iv c1c2c3c4c5c6c7c8d1d2d3d4d5d6d7d8 | head -c 64 | xxd -p -c 64
+//   > dd if=/dev/zero iflag=count_bytes count=64 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-256-cfb -K 0102030405060708a1a2a3a4a5a6a7a8b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8 -iv d1d2d3d4d5d6d7d8e1e2e3e4e5e6e7e8 | head -c 64 | xxd -p -c 64
 static TestVector gTestVectors [] =
 {
     {
         "00000000000000000000000000000000",
         "00000000000000000000000000000000",
-        "c2af41ffe8b9f1b295d68038e3e8ed3f70b72b168cd3d402ccbf0bb4fa12561fc703951c91d8ce81c5643155b5db1d34eb7b36c2cc4715c03ea24944bb5c5625"
+        "b8f1c2954cbd7101024ae43e9d5ab9433a2e27b381b25b8a63326bd732dad46168ee3e2ab11306132ecb2ce60bbb35fa60b78ea26629a8994ad7f9715b91c16e"
     },
     {
         "0102030405060708a1a2a3a4a5a6a7a8",
         "00000000000000000000000000000000",
-        "638198794af111670d5d7a7e13851484f71831108a5a134a9329787ad73379eb449e5068150233c4f0ae8c08d86708bc09724efaad3e6936e03c58f83f2abf3f"
+        "13abb562cf9d4861a2d7500ae43ec11cd9e285d7af33d1cf4a36b258046a381d2795d5a0f572bde98fe87deabc10b83a7e9620c8a6362c1f78b2909e100b0da6"
     },
     {
         "00000000000000000000000000000000",
         "b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8",
-        "c696d1b757d5b4ee2069d1c50b1e5569aa931d0ecc058a5adce099e2f844153db0cf0884102720e42ab58efe449faba054edd92c4006fffbd9b0aec297b852ae"
+        "4de4c422d7eb0977ca1e035e5100096d5db9d2a4da1572a89cfb75b89c1f0200e367454292f8ed2367aca20260198736ca604fb9976677f02bd66ca6845709c0"
     },
     {
         "0102030405060708a1a2a3a4a5a6a7a8",
         "b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8",
-        "a3c80c1c5ee817ad5faf31c6610e7895f480bdc9055362f0a7148b47b1dc5f11d041d94026266625cd6b512451a539ee9f3820667a84ace6cfbbe7edf746a14d"
+        "8b0639857baa2321d97d2e9170a2c867daeaa21f1766e64e5a8690b1d99aa7e55d384391bc7142599b761cf5b56be7e3a992bfa3608c8686f479c2f2c3dae94a"
     },
     {
         "0102030405060708a1a2a3a4a5a6a7a8b1b2b3b4b5b6b7b8",
         "c1c2c3c4c5c6c7c8d1d2d3d4d5d6d7d8",
-        "93928e29c82e5536bc5942c35bbbd4d7a69f0a7daa35c77ecb13b3ac2c46c473cb608f403982d8401385fd7fe66a1e329aa0f90a50180fb73b36e98cb7214736"
+        "370a04b88ce6877eb58473e3aa282c2d28c144ad0cc1448eee7fcdd563ea8a638b7c7c25aa6cb3cee649131e4855a633b3a44c95c90f31f8199f0d5f6576054e"
     },
     {
         "0102030405060708a1a2a3a4a5a6a7a8b1b2b3b4b5b6b7b8c1c2c3c4c5c6c7c8",
         "d1d2d3d4d5d6d7d8e1e2e3e4e5e6e7e8",
-        "2b559a644b62f1540c4ff9c50140fadedeefd49de9827dfbc8be8e4f7e2ac4ea746c8432d184059f62facaf765d90eadb7bdecac5e23bdc23f4026cd32d18ae2"
+        "d8b12b4180e320cd0058b3f0263417ffd9dc611d7ee9fa1041051c342099c33dcffcf8afd56cde097052f729a8d05ad94ac35de06346ebb09031ae40b61d837f"
     },
 };
 
@@ -132,7 +132,7 @@ void
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  TestVectors
 //
-//  Tests AES CBC against fixed test vectors
+//  Tests AES CFB against fixed test vectors
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static
 bool
@@ -144,9 +144,9 @@ bool
     uint32_t        vectorIndex;
     uint8_t         key [AES_KEY_SIZE_256];
     uint32_t        keySize = 0;
-    uint8_t         iv [AES_CBC_IV_SIZE];
+    uint8_t         iv [AES_CFB_IV_SIZE];
     uint8_t         vector [TEST_VECTOR_OUTPUT_SIZE * 2];
-    uint8_t         aesCbcOutput [TEST_VECTOR_OUTPUT_SIZE];
+    uint8_t         aesCfbOutput [TEST_VECTOR_OUTPUT_SIZE];
     uint8_t         decryptBuffer [TEST_VECTOR_OUTPUT_SIZE];
     uint8_t         inputBuffer [TEST_VECTOR_OUTPUT_SIZE] = {0};
     uint8_t         rc4Key = 0;
@@ -162,14 +162,14 @@ bool
         HexToBytes( gTestVectors[vectorIndex].IvHex,         iv, NULL );
         HexToBytes( gTestVectors[vectorIndex].CipherTextHex, vector, NULL );
 
-        AesCbcEncryptWithKey( key, keySize, iv, inputBuffer, aesCbcOutput, TEST_VECTOR_OUTPUT_SIZE );
-        if( 0 != memcmp( aesCbcOutput, vector, TEST_VECTOR_OUTPUT_SIZE ) )
+        AesCfbEncryptWithKey( key, keySize, iv, inputBuffer, aesCfbOutput, TEST_VECTOR_OUTPUT_SIZE );
+        if( 0 != memcmp( aesCfbOutput, vector, TEST_VECTOR_OUTPUT_SIZE ) )
         {
             printf( "Test vector (index:%u) failed\n", vectorIndex );
             return false;
         }
 
-        AesCbcDecryptWithKey( key, keySize, iv, aesCbcOutput, decryptBuffer, TEST_VECTOR_OUTPUT_SIZE );
+        AesCfbDecryptWithKey( key, keySize, iv, aesCfbOutput, decryptBuffer, TEST_VECTOR_OUTPUT_SIZE );
         if( 0 != memcmp( decryptBuffer, inputBuffer, TEST_VECTOR_OUTPUT_SIZE ) )
         {
             printf( "Test vector (index:%u) failed decrypt\n", vectorIndex );
@@ -194,12 +194,12 @@ bool
     )
 {
 
-//dd if=/dev/zero iflag=count_bytes count=1000000 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cbc -K 00001111222233334444555566667777 -iv 88889999aaaabbbbccccddddeeeeffff | head -c 1000000 | openssl sha1
-//(stdin)= 859463d3f0f27e67d37f05603f19b9d5c71c2059
+//dd if=/dev/zero iflag=count_bytes count=1000000 status=none | openssl enc -rc4 -K 0 | openssl enc -aes-128-cfb -K 00001111222233334444555566667777 -iv 88889999aaaabbbbccccddddeeeeffff | head -c 1000000 | openssl sha1
+//(stdin)= 0df61cb501a01b08af38993be113911f2b0ed365
 
     uint8_t const*  key = (uint8_t const*)"\x00\x00\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x66\x66\x77\x77";
     uint8_t const*  iv = (uint8_t const*)"\x88\x88\x99\x99\xaa\xaa\xbb\xbb\xcc\xcc\xdd\xdd\xee\xee\xff\xff";
-    uint8_t const*  sha1Hash = (uint8_t const*)"\x85\x94\x63\xd3\xf0\xf2\x7e\x67\xd3\x7f\x05\x60\x3f\x19\xb9\xd5\xc7\x1c\x20\x59";
+    uint8_t const*  sha1Hash = (uint8_t const*)"\x0d\xf6\x1c\xb5\x01\xa0\x1b\x08\xaf\x38\x99\x3b\xe1\x13\x91\x1f\x2b\x0e\xd3\x65";
     uint32_t const  numBytesToGenerate = 1000000;
     uint8_t const   rc4Key = 0;
 
@@ -208,7 +208,7 @@ bool
     uint32_t        amountLeft = numBytesToGenerate;
     uint32_t        chunkSize;
     Sha1Context     sha1Context;
-    AesCbcContext   aesCbcContext;
+    AesCfbContext   aesCfbContext;
     SHA1_HASH       calcSha1;
     uint32_t        offset;
     SHA1_HASH       initialInputSha1;
@@ -219,7 +219,7 @@ bool
     Rc4XorWithKey( &rc4Key, 1, 0, buffer, buffer, numBytesToGenerate );
     Sha1Calculate( buffer, numBytesToGenerate, &initialInputSha1 );
 
-    AesCbcEncryptWithKey( key, AES_KEY_SIZE_128, iv, buffer, buffer2, numBytesToGenerate );
+    AesCfbEncryptWithKey( key, AES_KEY_SIZE_128, iv, buffer, buffer2, numBytesToGenerate );
 
     Sha1Initialise( &sha1Context );
     Sha1Update( &sha1Context, buffer2, numBytesToGenerate );
@@ -232,7 +232,7 @@ bool
     }
 
     // Now decrypt the buffer to verify it goes back to the original.
-    AesCbcDecryptWithKey( key, AES_KEY_SIZE_128, iv, buffer, buffer2, numBytesToGenerate );
+    AesCfbDecryptWithKey( key, AES_KEY_SIZE_128, iv, buffer, buffer2, numBytesToGenerate );
     Sha1Calculate( buffer, numBytesToGenerate, &calcSha1 );
 
     if( 0 != memcmp( &calcSha1, &initialInputSha1, SHA1_HASH_SIZE ) )
@@ -245,7 +245,7 @@ bool
 
     // Now encrypt in smaller pieces (10000 bytes at a time)
     Sha1Initialise( &sha1Context );
-    AesCbcInitialiseWithKey( &aesCbcContext, key, AES_KEY_SIZE_128, iv );
+    AesCfbInitialiseWithKey( &aesCfbContext, key, AES_KEY_SIZE_128, iv );
 
     memset( buffer, 0, numBytesToGenerate );
     Rc4XorWithKey( &rc4Key, 1, 0, buffer, buffer, numBytesToGenerate );
@@ -254,7 +254,7 @@ bool
     while( amountLeft > 0 )
     {
         chunkSize = MIN( amountLeft, 10000 );
-        AesCbcEncrypt( &aesCbcContext, buffer+offset, buffer+offset, chunkSize );
+        AesCfbEncrypt( &aesCfbContext, buffer+offset, buffer+offset, chunkSize );
         Sha1Update( &sha1Context, buffer+offset, chunkSize );
         amountLeft -= chunkSize;
         offset += chunkSize;
@@ -278,10 +278,10 @@ bool
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  TestAesOfb
 //
-//  Test AES CBC algorithm
+//  Test AES CFB algorithm
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool
-    TestAesCbc
+    TestAesCfb
     (
         void
     )

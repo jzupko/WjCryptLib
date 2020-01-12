@@ -34,6 +34,8 @@ depending on what cryptographic functions are wanted.
   and WjCryptLib_Aes.c)
 * AES-CBC - (WjCryptLib_AesCbc.h, and WjCryptLib_AesCbc.c, WjCryptLib_Aes.h,
   and WjCryptLib_Aes.c)
+* AES-CFB - (WjCryptLib_AesCfb.h, and WjCryptLib_AesCfb.c, WjCryptLib_Aes.h,
+  and WjCryptLib_Aes.c)
 
 
 Version 2.3.0 - March 2018
